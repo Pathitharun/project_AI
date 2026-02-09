@@ -9,7 +9,6 @@
 pip install -r requirements.txt
 
 # Add API keys to .env file
-GROQ_API_KEY=your_key
 SERPAPI_API_KEY=your_key
 NEWSAPI_KEY=your_key  # Optional
 
@@ -24,7 +23,6 @@ python main.py
 
 ## ✨ Features
 
-- 🌐 **Hybrid AI**: Auto-switches between Groq (online) and Ollama (offline)
 - 🔍 **Smart Search**: Automatically searches the web when needed
 - � **GPS Location**: Get your current location (macOS only)
 - 🌤️ **Weather**: Real-time weather with GPS auto-detection
@@ -87,6 +85,5 @@ First run requires permission:
 
 ## License
 
-Copyright © 2026 Pathi tarun. All rights reserved.
-Licensed under the MIT License.
----
+- Copyright © 2026 Pathi tarun. All rights reserved.
+- Licensed under the MIT License.
