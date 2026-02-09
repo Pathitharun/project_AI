@@ -8,14 +8,13 @@ import json
 from typing import Optional
 from datetime import datetime, timedelta
 import pytz
-from ddgs import DDGS
-from newsapi import NewsApiClient
 import speedtest
 from rich.console import Console
 from dotenv import load_dotenv
 import subprocess
 from pathlib import Path
 import requests
+from news_sources import get_news, get_news_formatted, CATEGORIES, COUNTRIES
 
 load_dotenv()
 
@@ -24,7 +23,7 @@ console = Console()
 
 def web_search(query: str, max_results: int = 5) -> str:
     """
-    Search the web using DuckDuckGo
+    Search the web using SerpApi (Google Search)
     
     Args:
         query: Search query
@@ -34,143 +33,77 @@ def web_search(query: str, max_results: int = 5) -> str:
         Formatted search results
     """
     try:
-        with DDGS() as ddgs:
-            results = list(ddgs.text(query, max_results=max_results))
+        # Get API key from environment
+        api_key = os.getenv("SERPAPI_API_KEY")
         
-        if not results:
+        if not api_key or api_key == "your_serpapi_key_here":
+            return "❌ SerpApi API key not configured. Please add SERPAPI_API_KEY to your .env file.\nGet your API key at: https://serpapi.com"
+        
+        # SerpApi endpoint
+        url = "https://serpapi.com/search"
+        
+        # API parameters
+        params = {
+            "engine": "google",
+            "q": query,
+            "api_key": api_key,
+            "num": max_results
+        }
+        
+        # Make API request
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        
+        data = response.json()
+        
+        # Extract organic results
+        organic_results = data.get("organic_results", [])
+        
+        if not organic_results:
             return f"No search results found for: {query}"
         
         # Format results
         output = f"🔍 Web Search Results for '{query}':\n\n"
-        for i, result in enumerate(results, 1):
+        for i, result in enumerate(organic_results[:max_results], 1):
             title = result.get('title', 'No title')
-            body = result.get('body', 'No description')
-            url = result.get('href', '')
+            snippet = result.get('snippet', 'No description')
+            link = result.get('link', '')
             
             output += f"{i}. **{title}**\n"
-            output += f"   {body}\n"
-            if url:
-                output += f"   🔗 {url}\n"
+            output += f"   {snippet}\n"
+            if link:
+                output += f"   🔗 {link}\n"
             output += "\n"
         
         return output.strip()
     
+    except requests.exceptions.Timeout:
+        return f"❌ Search request timed out. Please try again."
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 401:
+            return "❌ Invalid SerpApi API key. Please check your SERPAPI_API_KEY in .env file."
+        elif e.response.status_code == 429:
+            return "❌ SerpApi rate limit exceeded. Please try again later."
+        else:
+            return f"❌ SerpApi error: {e.response.status_code} - {e.response.text}"
     except Exception as e:
         return f"Error performing web search: {str(e)}"
 
 
 def news_search(query: str, max_results: int = 5, days_back: int = 7) -> str:
     """
-    Search for recent news articles
+    Search for recent news articles using NewsAPI.org
     
     Args:
         query: News topic or keyword
         max_results: Maximum number of articles
-        days_back: How many days back to search
+        days_back: How many days back to search (not used, kept for compatibility)
         
     Returns:
-        Formatted news results
+        Formatted news results with only useful info (title, content, source, URL)
     """
-    newsapi_key = os.getenv("NEWSAPI_KEY")
-    
-    # If no NewsAPI key, fall back to DuckDuckGo news search
-    if not newsapi_key:
-        return _ddg_news_search(query, max_results)
-    
-    try:
-        newsapi = NewsApiClient(api_key=newsapi_key)
-        
-        # Calculate date range
-        to_date = datetime.now()
-        from_date = to_date - timedelta(days=days_back)
-        
-        # Search for news
-        response = newsapi.get_everything(
-            q=query,
-            from_param=from_date.strftime('%Y-%m-%d'),
-            to=to_date.strftime('%Y-%m-%d'),
-            language='en',
-            sort_by='publishedAt',
-            page_size=max_results
-        )
-        
-        articles = response.get('articles', [])
-        
-        if not articles:
-            return f"No recent news found for: {query}"
-        
-        # Format results
-        output = f"📰 Latest News on '{query}':\n\n"
-        for i, article in enumerate(articles, 1):
-            title = article.get('title', 'No title')
-            description = article.get('description', 'No description')
-            source = article.get('source', {}).get('name', 'Unknown')
-            published = article.get('publishedAt', '')
-            url = article.get('url', '')
-            
-            # Format date
-            if published:
-                try:
-                    pub_date = datetime.fromisoformat(published.replace('Z', '+00:00'))
-                    published = pub_date.strftime('%Y-%m-%d %H:%M')
-                except:
-                    pass
-            
-            output += f"{i}. **{title}**\n"
-            output += f"   📍 {source} | {published}\n"
-            output += f"   {description}\n"
-            if url:
-                output += f"   🔗 {url}\n"
-            output += "\n"
-        
-        return output.strip()
-    
-    except Exception as e:
-        # Fall back to DuckDuckGo on error
-        return _ddg_news_search(query, max_results)
-
-
-def _ddg_news_search(query: str, max_results: int = 5) -> str:
-    """
-    Fallback news search using DuckDuckGo
-    
-    Args:
-        query: News topic or keyword
-        max_results: Maximum number of results
-        
-    Returns:
-        Formatted news results
-    """
-    try:
-        with DDGS() as ddgs:
-            results = list(ddgs.news(query, max_results=max_results))
-        
-        if not results:
-            return f"No recent news found for: {query}"
-        
-        # Format results
-        output = f"📰 Latest News on '{query}':\n\n"
-        for i, result in enumerate(results, 1):
-            title = result.get('title', 'No title')
-            body = result.get('body', 'No description')
-            source = result.get('source', 'Unknown')
-            date = result.get('date', '')
-            url = result.get('url', '')
-            
-            output += f"{i}. **{title}**\n"
-            output += f"   📍 {source}"
-            if date:
-                output += f" | {date}"
-            output += "\n"
-            output += f"   {body}\n"
-            if url:
-                output += f"   🔗 {url}\n"
-            output += "\n"
-        
-        return output.strip()
-    
-    except Exception as e:
-        return f"Error fetching news: {str(e)}"
+    # Use the clean NewsAPI implementation from news_sources.py
+    return get_news_formatted(query=query, max_results=max_results)
 
 
 # Function schemas for Groq function calling
@@ -223,15 +156,63 @@ TOOL_SCHEMAS = [
                 "required": ["query"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "manage_memory",
+            "description": "Manage persistent memory across conversations. Use this to remember user preferences, personal information, and conversation context. Always read memory when the user introduces themselves or asks 'who am I'. Save important information about the user immediately.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "mode": {
+                        "type": "string",
+                        "description": "Operation mode: 'r' to read memory, 'w' to write/overwrite memory, 'a' to append to memory",
+                        "enum": ["r", "w", "a"]
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "Content to write or append (required for 'w' and 'a' modes). Should be in markdown format."
+                    },
+                    "filepath": {
+                        "type": "string",
+                        "description": "Path to memory file (default: 'memory.md')",
+                        "default": "memory.md"
+                    }
+                },
+                "required": ["mode"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_category_news",
+            "description": "Get top news headlines by category and country. Categories: general, technology, business, entertainment, health, science, sports. Countries: us, in, gb, au, ca, and 50+ others.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "category": {
+                        "type": "string",
+                        "description": "News category: 'general', 'technology', 'business', 'entertainment', 'health', 'science', 'sports'",
+                        "enum": ["general", "technology", "business", "entertainment", "health", "science", "sports"]
+                    },
+                    "country": {
+                        "type": "string",
+                        "description": "Two-letter country code (default: 'us'). Examples: 'us' (USA), 'in' (India), 'gb' (UK), 'au' (Australia), 'ca' (Canada)",
+                        "default": "us"
+                    },
+                    "save_file": {
+                        "type": "boolean",
+                        "description": "Save full news data to JSON file (default: false)",
+                        "default": False
+                    }
+                },
+                "required": ["category"]
+            }
+        }
     }
 ]
-
-
-# Tool functional mapping
-AVAILABLE_TOOLS = {
-    "web_search": web_search,
-    "news_search": news_search
-}
 
 
 def execute_tool(tool_name: str, arguments: dict) -> str:
@@ -586,8 +567,28 @@ def get_weather(location: str = "auto") -> str:
     try:
         # Using wttr.in API (no key required, simple and reliable)
         if location.lower() == "auto":
-            # Auto-detect location
-            url = "https://wttr.in/?format=j1"
+            # Try to get GPS location first
+            try:
+                location_result = get_location()
+                # Extract city from location result if successful
+                if "❌" not in location_result:
+                    # Parse the city from the location output
+                    import re
+                    city_match = re.search(r'🏙️  City: ([^,\n]+)', location_result)
+                    if city_match:
+                        detected_city = city_match.group(1).strip()
+                        console.print(f"[dim]📍 Using GPS location: {detected_city}[/dim]")
+                        url = f"https://wttr.in/{detected_city}?format=j1"
+                    else:
+                        # Fallback to IP-based detection
+                        url = "https://wttr.in/?format=j1"
+                else:
+                    # GPS failed, use IP-based detection
+                    console.print("[dim]📍 GPS unavailable, using IP-based location[/dim]")
+                    url = "https://wttr.in/?format=j1"
+            except:
+                # Any error, fallback to IP-based detection
+                url = "https://wttr.in/?format=j1"
         else:
             # Specific location
             url = f"https://wttr.in/{location}?format=j1"
@@ -653,6 +654,83 @@ def get_weather(location: str = "auto") -> str:
         return f"❌ Error fetching weather data: {str(e)}\nTip: Check your internet connection or try a different location."
     except Exception as e:
         return f"❌ Error getting weather: {str(e)}"
+
+
+def get_location(**kwargs) -> str:
+    """
+    Get current GPS location using CoreLocationCLI
+    
+    Args:
+        **kwargs: Accepts any arguments (for compatibility with tool calling)
+    
+    Returns:
+        Formatted location information with coordinates, city, address, etc.
+    """
+    try:
+        # Get the script directory
+        script_dir = Path(__file__).parent
+        script_path = script_dir / "get_location.sh"
+        
+        # Check if script exists
+        if not script_path.exists():
+            return "❌ Location script not found. Please ensure get_location.sh exists in the project directory."
+        
+        # Run the location script
+        result = subprocess.run(
+            [str(script_path)],
+            capture_output=True,
+            text=True,
+            timeout=15
+        )
+        
+        if result.returncode != 0:
+            # Check error message
+            if "not installed" in result.stderr:
+                return "❌ CoreLocationCLI not installed. Installing via Homebrew...\n" + result.stderr
+            elif "timed out" in result.stderr or "Location Services" in result.stderr:
+                return "❌ Could not get location. Please ensure:\n1. Location Services are enabled in System Settings > Privacy & Security\n2. Terminal has location permissions"
+            elif "approve" in result.stderr.lower():
+                return "❌ CoreLocationCLI needs approval. Please:\n1. Go to System Settings > Privacy & Security\n2. Approve CoreLocationCLI in the bottom-right corner\n3. Try again"
+            else:
+                return f"❌ Error getting location: {result.stderr}"
+        
+        # Parse JSON output
+        location_data = json.loads(result.stdout)
+        
+        # Extract location information
+        latitude = location_data.get('latitude', 'N/A')
+        longitude = location_data.get('longitude', 'N/A')
+        address = location_data.get('address', 'N/A')
+        city = location_data.get('locality', 'Unknown')
+        state = location_data.get('administrativeArea', '')
+        country = location_data.get('country', 'Unknown')
+        postal_code = location_data.get('postalCode', '')
+        altitude = location_data.get('altitude', 'N/A')
+        
+        # Format output
+        output = "📍 Current Location:\\n\\n"
+        output += f"🌍 Coordinates: {latitude}, {longitude}\\n"
+        output += f"🏙️  City: {city}"
+        if state:
+            output += f", {state}"
+        output += f"\\n🌏 Country: {country}\\n"
+        
+        if postal_code:
+            output += f"📮 Postal Code: {postal_code}\\n"
+        
+        if altitude != 'N/A':
+            output += f"⛰️  Altitude: {altitude}m\\n"
+        
+        output += f"\\n📬 Full Address:\\n{address}"
+        
+        return output
+        
+    except subprocess.TimeoutExpired:
+        return "❌ Location request timed out. Please ensure Location Services are enabled."
+    except json.JSONDecodeError:
+        return "❌ Failed to parse location data. Please try again."
+    except Exception as e:
+        return f"❌ Error getting location: {str(e)}"
 
 
 # ================================
@@ -848,6 +926,70 @@ def speak_text(text: str) -> bool:
         return False
 
 
+# ============================================================================
+# MEMORY MANAGEMENT
+# ============================================================================
+
+def manage_memory(mode: str, content: Optional[str] = None, filepath: str = "memory.md") -> Optional[str]:
+    """
+    Manage a markdown memory file with read, write, and append operations.
+    
+    Args:
+        mode (str): Operation mode - 'r' (read), 'w' (write), 'a' (append)
+        content (str, optional): Content to write or append. Required for 'w' and 'a' modes
+        filepath (str): Path to the memory file. Defaults to "memory.md"
+    
+    Returns:
+        str: File content for read mode, success message for write/append modes
+        None: If operation fails
+    
+    Examples:
+        # Read memory
+        memory = manage_memory('r')
+        
+        # Write new memory (overwrites existing)
+        manage_memory('w', "# My Memory\n\nImportant notes here")
+        
+        # Append to memory
+        manage_memory('a', "\n\n## New Section\n\nAdditional information")
+    """
+    
+    try:
+        if mode == 'r':
+            # Read mode
+            if not os.path.exists(filepath):
+                return "Memory file does not exist yet."
+            
+            with open(filepath, 'r', encoding='utf-8') as f:
+                return f.read()
+        
+        elif mode == 'w':
+            # Write mode (overwrite)
+            if content is None:
+                raise ValueError("Content is required for write mode")
+            
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write(content)
+            
+            return f"✅ Successfully wrote to {filepath}"
+        
+        elif mode == 'a':
+            # Append mode
+            if content is None:
+                raise ValueError("Content is required for append mode")
+            
+            with open(filepath, 'a', encoding='utf-8') as f:
+                f.write(content)
+            
+            return f"✅ Successfully appended to {filepath}"
+        
+        else:
+            raise ValueError(f"Invalid mode: {mode}. Use 'r', 'w', or 'a'")
+    
+    except Exception as e:
+        return f"❌ Error: {str(e)}"
+
+
 # Tool schemas for AI function calling (if needed in the future)
 VOICE_TOOL_SCHEMAS = [
     {
@@ -880,3 +1022,13 @@ VOICE_TOOL_SCHEMAS = [
         }
     }
 ]
+
+
+# Tool functional mapping
+AVAILABLE_TOOLS = {
+    "web_search": web_search,
+    "news_search": news_search,
+    "manage_memory": manage_memory,
+    "get_category_news": get_news_formatted,
+    "get_location": get_location
+}

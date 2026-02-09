@@ -17,6 +17,7 @@ pip install -r requirements.txt
 
 # Set up environment variables
 echo "GROQ_API_KEY=your_groq_api_key_here" > .env
+echo "SERPAPI_API_KEY=your_serpapi_key_here" >> .env
 echo "NEWSAPI_KEY=your_newsapi_key_here" >> .env  # Optional
 
 # Run the assistant
@@ -59,12 +60,13 @@ Open, close, and manage applications with natural language:
 ### 🌤️ Real-Time Information
 - **Current Time**: Get time in any timezone
 - **Current Date**: Date with day-of-year and week number
-- **Weather**: Real-time weather for any location
+- **Weather**: Real-time weather for any location (auto-detects using GPS!)
+- **GPS Location**: Get precise coordinates, address, and location data (macOS only)
 
 ### ⚡ Internet Tools
 - **Speed Test**: Test your internet connection
-- **Web Search**: DuckDuckGo integration
-- **News Search**: NewsAPI + DuckDuckGo fallback
+- **Web Search**: SerpApi (Google Search) integration
+- **News Search**: NewsAPI + SerpApi (Google News) fallback
 
 ## 📖 Commands Reference
 
@@ -115,7 +117,8 @@ Open, close, and manage applications with natural language:
 |---------------|-------------|---------|
 | Time queries | Get current time | `what time is it?`, `current time` |
 | Date queries | Get current date | `what's the date?`, `today's date` |
-| Weather queries | Get weather info | `weather in Mumbai`, `temperature` |
+| Weather queries | Get weather info | `weather in Mumbai`, `weather` (auto GPS) |
+| Location queries | Get GPS location | `where am I?`, `my location` |
 
 ## 💡 Usage Examples
 
@@ -228,6 +231,22 @@ AI: 🌤️ Weather in Mumbai, India:
     ☁️  Condition: Partly cloudy
     💧 Humidity: 65%
     [More details...]
+
+You: where am I?
+AI: 📍 Current Location:
+
+    🌍 Coordinates: 19.0760, 72.8777
+    🏙️  City: Mumbai, Maharashtra
+    🌏 Country: India
+    📮 Postal Code: 400001
+
+    📬 Full Address:
+    Main Street, Mumbai, Maharashtra 400001, India
+
+You: weather
+AI: 📍 Using GPS location: Mumbai
+    🌤️ Weather in Mumbai, India:
+    [Weather details for your current location...]
 ```
 
 ## 🛠️ Technical Architecture
@@ -235,7 +254,7 @@ AI: 🌤️ Weather in Mumbai, India:
 ### Key Components
 
 1. **`main.py`**: Main entry point with command parsing and UI
-2. **`hybrid_ai.py`**: Hybrid AI system with auto-switching logic and function calling
+2. **`ollama_ai.py`**: Ollama AI system with function calling
 3. **`tools.py`**: All tool functions (search, files, apps, voice, weather, etc.)
 
 ### Technology Stack
@@ -243,7 +262,7 @@ AI: 🌤️ Weather in Mumbai, India:
 - **AI Models**:
   - Groq API (`llama-3.3-70b-versatile`)
   - Ollama (`llama3.2`)
-- **Search**: DuckDuckGo (`ddgs`), NewsAPI
+- **Search**: SerpApi (Google Search & News), NewsAPI
 - **Voice**: SpeechRecognition + pyttsx3
 - **Weather**: wttr.in API
 - **UI**: Rich console library
@@ -253,7 +272,7 @@ AI: 🌤️ Weather in Mumbai, India:
 See [`requirements.txt`](requirements.txt) for full list:
 - `groq` - Groq API client
 - `ollama` - Ollama local AI
-- `ddgs` - DuckDuckGo search
+- `requests` - SearchApi.io HTTP client
 - `newsapi-python` - News API client
 - `SpeechRecognition` - Speech-to-text
 - `pyttsx3` - Text-to-speech
@@ -279,6 +298,8 @@ The assistant automatically detects and handles:
 
 **Weather Triggers**: `weather`, `temperature`, `forecast`, `how hot`, `how cold`
 
+**Location Triggers**: `where am I`, `my location`, `current location`, `GPS`
+
 **Voice Triggers**: `STT on/off`, `TTS on/off`, `voice mode`, `talk to me`
 
 ## 🔧 Configuration
@@ -289,7 +310,10 @@ The assistant automatically detects and handles:
 # Required for online mode and auto-search
 GROQ_API_KEY=your_groq_api_key_here
 
-# Optional: for NewsAPI integration (falls back to DuckDuckGo if not set)
+# Required for web search and news search
+SERPAPI_API_KEY=your_serpapi_key_here
+
+# Optional: for NewsAPI integration (falls back to SerpApi if not set)
 NEWSAPI_KEY=your_newsapi_key_here
 ```
 
@@ -329,3 +353,10 @@ This project is open source and available for personal and educational use.
 ---
 
 **Made with ❤️ using Groq + Ollama + Python**
+
+
+## Copyright
+
+© 2026 Tharun Naidu. All rights reserved.
+
+Licensed under the MIT License.

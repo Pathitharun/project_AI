@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Tharun Naidu
+# Licensed under the MIT License
+
 """
 Hybrid Groq/Ollama AI Chat - Auto-switches between online and offline
 """
@@ -7,7 +10,7 @@ import tools
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
-from hybrid_ai import HybridAI
+from ollama_ai import OllamaAI
 
 console = Console()
 
@@ -15,32 +18,18 @@ console = Console()
 def main():
     """Main function for hybrid chat"""
     console.print(Panel.fit(
-        "[bold cyan]Hybrid AI Chat[/bold cyan]\n"
-        "Groq (online) + Ollama (offline)",
-        border_style="cyan"
+        "[bold magenta]Ollama AI with Web Search[/bold magenta]\n"
+        "Local AI + Current Information",
+        border_style="magenta"
     ))
     
-    # Initialize Hybrid AI
-    ai = HybridAI(
-        groq_model="llama-3.3-70b-versatile",
-        ollama_model="llama3.2",
-        system_message="You are a helpful, friendly, and knowledgeable AI assistant. "
-                      "When users ask about recent events, current news, latest information, "
-                      "or anything that happened after 2023, use the available search tools to "
-                      "find up-to-date information. Today's date is January 31, 2026."
-    )
+    # Initialize Ollama AI
+    ai = OllamaAI(model="llama3.2")
     
-    # Show current status
-    provider = ai.get_current_provider()
-    model = ai.get_current_model()
-    console.print(f"[dim]Current: {provider.upper()} - {model}[/dim]\n")
+    console.print()
     """Main chat loop"""
-    console.print("[bold cyan]💬 Hybrid AI Chat (with Auto-Search)[/bold cyan]")
-    console.print("[dim]Automatically switches between Groq (online) and Ollama (offline)[/dim]")
+    console.print("[bold magenta]💬 Ollama AI Chat (with Web Search)[/bold magenta]")
     console.print("[dim]Type /help for commands, /quit to exit[/dim]\n")
-    
-    # Initialize AI
-    ai = HybridAI(enable_tools=True)
     
     # Voice states
     voice_output_enabled = False

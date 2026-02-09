@@ -4,11 +4,9 @@ rich
 requests
 beautifulsoup4
 ollama
+openai
 SpeechRecognition>=3.10.0
 pyttsx3>=2.90
 PyAudio>=0.2.14
 vosk>=0.3.45
-ddgs
-newsapi-python
-requests
 speedtest-cli
