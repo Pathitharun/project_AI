@@ -85,10 +85,8 @@ First run requires permission:
 1. System Settings → Privacy & Security → Location Services
 2. Enable for Terminal/CoreLocationCLI
 
-## � License
+## License
 
-Copyright © 2026 Pathitharun. All rights reserved.
-
+Copyright © 2026 Pathi tarun. All rights reserved.
+Licensed under the MIT License.
 ---
-
-**Made with ❤️ by Tharun**
